@@ -1,0 +1,1831 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0b1120" />
+  <title>DockDroid — Android Home Server Docker Manager</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #070b14;
+      color: #f1f5f9;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.1); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .animate-pulse-ring { animation: pulse-ring 2s infinite ease-in-out; }
+    .phone-shell {
+      max-width: 480px;
+      margin: 16px auto;
+      border: 8px solid #1e293b;
+      border-radius: 36px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(148, 163, 184, 0.15);
+      overflow: hidden;
+      min-height: calc(100vh - 32px);
+    }
+    .full-shell {
+      max-width: 1120px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+  </style>
+</head>
+<body class="bg-[#070b14] text-slate-100 antialiased selection:bg-sky-500/30 selection:text-sky-200">
+
+  <!-- Main Shell Wrapper -->
+  <div id="appShell" class="full-shell flex flex-col bg-[#0b1120] relative">
+
+    <!-- Android Status Bar (Visible in Mobile Preview or Compact Header) -->
+    <div class="bg-[#080d1a] px-4 py-1.5 flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800/80">
+      <div class="flex items-center gap-2">
+        <span id="statusClock" class="font-medium text-slate-300">23:09</span>
+        <span class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 font-mono-code text-[10px] border border-sky-500/20" id="connectionModeBadge">SSH • Port 22</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="toggleViewportBtn" onclick="toggleViewportMode()" class="text-[11px] text-slate-300 hover:text-sky-400 flex items-center gap-1 bg-slate-800/90 px-2 py-0.5 rounded-full border border-slate-700 transition">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <span id="viewportBtnLabel">Phone View</span>
+        </button>
+        <span class="flex items-center gap-1 text-emerald-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          Docker 27.3.1
+        </span>
+      </div>
+    </div>
+
+    <!-- Top App Bar -->
+    <header class="sticky top-0 z-20 bg-[#0b1120]/95 backdrop-blur-md border-b border-slate-800/90 px-4 py-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">DockDroid</h1>
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">v1.4 Android</span>
+            </div>
+            <p class="text-xs text-slate-400" id="activeServerSubtitle">Home-NAS-Primary • ssh://root@192.168.1.50:22</p>
+          </div>
+        </div>
+
+        <!-- Server Selector & Quick Registry Scan -->
+        <div class="flex items-center gap-2">
+          <label for="serverSelect" class="sr-only">Select Server Node</label>
+          <select id="serverSelect" onchange="switchServerNode(this.value)" class="bg-slate-800/90 text-xs text-slate-200 rounded-xl px-3 py-2 border border-slate-700 focus:outline-none focus:border-sky-500">
+            <option value="nas">Home-NAS-Primary (192.168.1.50)</option>
+            <option value="proxmox">Proxmox-Media-VM (192.168.1.55)</option>
+            <option value="rpi">RPi5-Edge-DNS (192.168.1.60)</option>
+          </select>
+
+          <button id="checkRegistryBtn" onclick="checkForRegistryUpdates()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-medium text-sky-300 px-3 py-2 rounded-xl border border-slate-700 flex items-center gap-1.5 transition" title="Check Docker Hub & GHCR for new digests">
+            <svg id="checkRegistryIcon" class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span class="hidden sm:inline">Scan Updates</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Server Resource Telemetry Bar -->
+      <div class="grid grid-cols-4 gap-2 mt-3 pt-2.5 border-t border-slate-800/80 text-xs">
+        <div class="bg-slate-900/80 rounded-xl p-2 border border-slate-800/70">
+          <div class="flex items-center justify-between text-slate-400 text-[11px]">
+            <span>CPU Load</span>
+            <span id="metricCpuText" class="font-mono-code text-sky-400 font-semibold">18%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+            <div id="metricCpuBar" class="h-full bg-sky-500 rounded-full transition-all duration-300" style="width: 18%"></div>
+          </div>
+        </div>
+        <div class="bg-slate-900/80 rounded-xl p-2 border border-slate-800/70">
+          <div class="flex items-center justify-between text-slate-400 text-[11px]">
+            <span>RAM</span>
+            <span id="metricRamText" class="font-mono-code text-indigo-400 font-semibold">6.4/16G</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+            <div id="metricRamBar" class="h-full bg-indigo-500 rounded-full transition-all duration-300" style="width: 40%"></div>
+          </div>
+        </div>
+        <div class="bg-slate-900/80 rounded-xl p-2 border border-slate-800/70">
+          <div class="flex items-center justify-between text-slate-400 text-[11px]">
+            <span>NVMe Pool</span>
+            <span id="metricDiskText" class="font-mono-code text-emerald-400 font-semibold">412G free</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+            <div id="metricDiskBar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 58%"></div>
+          </div>
+        </div>
+        <div class="bg-slate-900/80 rounded-xl p-2 border border-slate-800/70">
+          <div class="flex items-center justify-between text-slate-400 text-[11px]">
+            <span>Temp / Up</span>
+            <span id="metricTempText" class="font-mono-code text-amber-400 font-semibold">44°C • 42d</span>
+          </div>
+          <div class="text-[10px] text-slate-400 mt-1 truncate" id="metricSummaryText">8 running • 1 stopped</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Scrollable Content Area -->
+    <main class="flex-1 p-4 pb-24 space-y-4">
+
+      <!-- TAB 1: CONTAINERS VIEW -->
+      <section id="tabContainers" class="space-y-4">
+
+        <!-- One-Click Batch Update Banner -->
+        <div id="updateBanner" class="rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-sky-500/15 border border-amber-500/30 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-start sm:items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center shrink-0 text-amber-300">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-sm font-semibold text-white" id="updateBannerTitle">4 Container Updates Available</h2>
+                <span class="text-[10px] font-mono-code uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Registry Digests Verified</span>
+              </div>
+              <p class="text-xs text-slate-300 mt-0.5" id="updateBannerSub">One-click update pulls new layers, backs up config, and recreates containers with zero data loss.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="updateAllBtn" onclick="updateAllContainers()" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+              <span id="updateAllBtnLabel">1-Click Update All (4)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Update Pipeline Progress Box (Hidden when idle) -->
+        <div id="updateProgressBox" class="hidden rounded-2xl bg-slate-900 border border-sky-500/40 p-4 space-y-2.5 shadow-xl">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping"></span>
+              <span id="updateProgressTitle" class="text-xs font-semibold text-sky-300">Updating container...</span>
+            </div>
+            <span id="updateProgressStep" class="text-xs font-mono-code text-slate-400">Step 1/4</span>
+          </div>
+          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div id="updateProgressBar" class="h-full bg-gradient-to-r from-sky-500 to-emerald-400 transition-all duration-300" style="width: 25%"></div>
+          </div>
+          <p id="updateProgressDetail" class="text-xs font-mono-code text-slate-300">Pulling latest image layers from ghcr.io...</p>
+        </div>
+
+        <!-- Search & Filter Bar -->
+        <div class="flex flex-col sm:flex-row gap-2.5">
+          <div class="relative flex-1">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input id="containerSearchInput" type="text" oninput="setSearchQuery(this.value)" placeholder="Search containers, images, or ports (e.g. jellyfin, 8096)..." class="w-full bg-slate-900/90 text-xs text-slate-100 placeholder-slate-500 pl-9 pr-8 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-sky-500" />
+            <button id="clearSearchBtn" onclick="clearSearchQuery()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs px-1">✕</button>
+          </div>
+
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            <button id="filterBtnAll" onclick="setContainerFilter('all')" class="px-3 py-2 rounded-xl text-xs font-medium bg-sky-500 text-slate-950 whitespace-nowrap transition">All (9)</button>
+            <button id="filterBtnUpdates" onclick="setContainerFilter('updates')" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition">Updates (4)</button>
+            <button id="filterBtnRunning" onclick="setContainerFilter('running')" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition">Running (8)</button>
+            <button id="filterBtnStopped" onclick="setContainerFilter('stopped')" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition">Stopped (1)</button>
+          </div>
+        </div>
+
+        <!-- Container Cards Grid -->
+        <div id="containersList" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </section>
+
+      <!-- TAB 2: COMPOSE STACKS VIEW -->
+      <section id="tabStacks" class="hidden space-y-4">
+        <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-semibold text-white">Docker Compose Stacks</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Manage multi-container stacks, edit environment variables, and run one-click <code class="text-sky-400 font-mono-code">docker compose pull &amp;&amp; up -d</code>.</p>
+          </div>
+          <button id="pullAllStacksBtn" onclick="redeployAllStacks()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs px-4 py-2.5 rounded-xl transition shrink-0">
+            Pull &amp; Redeploy All Stacks
+          </button>
+        </div>
+
+        <div id="stacksList" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </section>
+
+      <!-- TAB 3: MAINTENANCE & HOUSEKEEPING VIEW -->
+      <section id="tabMaintenance" class="hidden space-y-4">
+        <!-- Reclaimable Disk Space Hero -->
+        <div class="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950/40 border border-slate-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span class="text-[11px] font-mono-code uppercase tracking-wider text-sky-400">Docker Storage Engine</span>
+            <h2 class="text-lg font-bold text-white mt-0.5">Reclaimable Space: <span id="reclaimableTotalText" class="text-emerald-400 font-mono-code">6.85 GB</span></h2>
+            <p class="text-xs text-slate-400 mt-1">Old container layers, dangling images from prior updates, and unused build caches can be safely pruned without affecting running containers.</p>
+          </div>
+          <button id="pruneAllBtn" onclick="runMaintenanceTask('all')" class="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-semibold text-xs px-4 py-3 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 shrink-0 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            <span>1-Click Clean All (6.85 GB)</span>
+          </button>
+        </div>
+
+        <!-- Maintenance Task Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-white">Prune Unused Images</span>
+                <span id="reclaimImagesBadge" class="text-xs font-mono-code text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-lg border border-amber-500/30">4.20 GB</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">Removes superseded image layers (<code class="font-mono-code text-slate-300">docker image prune -a</code>) left behind after container updates.</p>
+            </div>
+            <button id="pruneImagesBtn" onclick="runMaintenanceTask('images')" class="w-full bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 py-2 rounded-xl border border-slate-700 transition">Prune Unused Images</button>
+          </div>
+
+          <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-white">Prune Build Cache</span>
+                <span id="reclaimCacheBadge" class="text-xs font-mono-code text-sky-300 bg-sky-500/15 px-2 py-0.5 rounded-lg border border-sky-500/30">1.95 GB</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">Clears BuildKit layer caches (<code class="font-mono-code text-slate-300">docker builder prune</code>) from custom Dockerfile builds.</p>
+            </div>
+            <button id="pruneCacheBtn" onclick="runMaintenanceTask('cache')" class="w-full bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 py-2 rounded-xl border border-slate-700 transition">Clear Build Cache</button>
+          </div>
+
+          <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-white">Prune Dangling Volumes</span>
+                <span id="reclaimVolumesBadge" class="text-xs font-mono-code text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded-lg border border-indigo-500/30">0.70 GB</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">Removes anonymous unattached volumes (<code class="font-mono-code text-slate-300">docker volume prune</code>). Named stack volumes are preserved.</p>
+            </div>
+            <button id="pruneVolumesBtn" onclick="runMaintenanceTask('volumes')" class="w-full bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 py-2 rounded-xl border border-slate-700 transition">Prune Orphan Volumes</button>
+          </div>
+
+          <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-white">Verify &amp; Repair Networks</span>
+                <span class="text-xs font-mono-code text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-lg border border-emerald-500/30">3 Bridge Nets</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">Checks DNS resolution across <code class="font-mono-code text-slate-300">proxy_net</code>, <code class="font-mono-code text-slate-300">media_net</code>, and <code class="font-mono-code text-slate-300">host</code> interfaces and prunes stale bridges.</p>
+            </div>
+            <button id="checkNetworkBtn" onclick="runMaintenanceTask('networks')" class="w-full bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 py-2 rounded-xl border border-slate-700 transition">Run Network Healthcheck</button>
+          </div>
+        </div>
+
+        <!-- Automated Unattended Maintenance Rules -->
+        <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Automated Maintenance Schedule (Watchtower Mode)</h3>
+              <p class="text-xs text-slate-400">Configure unattended home server rules executed by the DockDroid daemon.</p>
+            </div>
+            <span class="text-xs font-mono-code text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">Cron Active</span>
+          </div>
+
+          <div class="divide-y divide-slate-800/80 text-xs">
+            <div class="py-2.5 flex items-center justify-between gap-4">
+              <div>
+                <p class="font-medium text-slate-200">Auto-Check Registry Digests Every 6 Hours</p>
+                <p class="text-slate-400 text-[11px]">Polls Docker Hub, GHCR, and LSIO without pulling layers until requested.</p>
+              </div>
+              <button id="ruleDigestBtn" onclick="toggleAutomationRule('digestCheck')" class="px-3 py-1.5 rounded-lg font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition">Enabled</button>
+            </div>
+
+            <div class="py-2.5 flex items-center justify-between gap-4">
+              <div>
+                <p class="font-medium text-slate-200">Auto-Prune Old Image After 1-Click Update</p>
+                <p class="text-slate-400 text-[11px]">Automatically removes the superseded image once the container passes its 30s healthcheck.</p>
+              </div>
+              <button id="ruleAutoPruneBtn" onclick="toggleAutomationRule('autoPrune')" class="px-3 py-1.5 rounded-lg font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition">Enabled</button>
+            </div>
+
+            <div class="py-2.5 flex items-center justify-between gap-4">
+              <div>
+                <p class="font-medium text-slate-200">Auto-Rollback on Container Crash Loop</p>
+                <p class="text-slate-400 text-[11px]">Reverts to <code class="font-mono-code text-slate-300">&lt;container&gt;_backup</code> if a newly updated container exits within 60 seconds.</p>
+              </div>
+              <button id="ruleRollbackBtn" onclick="toggleAutomationRule('autoRollback')" class="px-3 py-1.5 rounded-lg font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition">Enabled</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Maintenance Activity Log -->
+        <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white">Maintenance &amp; Update Audit Log</h3>
+            <button id="clearAuditLogBtn" onclick="clearAuditHistory()" class="text-xs text-slate-400 hover:text-slate-200">Clear History</button>
+          </div>
+          <div id="auditLogList" class="space-y-1.5 max-h-56 overflow-y-auto font-mono-code text-[11px]"></div>
+        </div>
+      </section>
+
+      <!-- TAB 4: LIVE SERVER LINK & ANDROID APK SETUP -->
+      <section id="tabConnect" class="hidden space-y-4">
+        <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 space-y-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-white">Direct SSH Home Server Connection (Port 22)</h2>
+              <p class="text-xs text-slate-400 mt-0.5">The native Android APK connects directly over SSH (via JSch) to run Docker commands without needing any extra container installed on your server.</p>
+            </div>
+            <span id="liveApiBadge" class="text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30">SSH Mode Ready</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div>
+              <label for="inputServerUrl" class="block text-slate-300 font-medium mb-1">SSH Host / IP &amp; Port</label>
+              <input id="inputServerUrl" type="text" value="192.168.1.50:22" class="w-full bg-slate-950 text-slate-100 font-mono-code px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label for="inputSshUser" class="block text-slate-300 font-medium mb-1">SSH Username</label>
+              <input id="inputSshUser" type="text" value="root" class="w-full bg-slate-950 text-slate-100 font-mono-code px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label for="inputApiKey" class="block text-slate-300 font-medium mb-1">SSH Password or Private Key</label>
+              <input id="inputApiKey" type="password" value="changeme-ssh-secret" class="w-full bg-slate-950 text-slate-100 font-mono-code px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-sky-500" />
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="saveServerConnBtn" onclick="testAndSaveConnection()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs px-4 py-2.5 rounded-xl transition">
+              Connect &amp; Test Endpoint
+            </button>
+            <button id="useDemoModeBtn" onclick="enableDemoMode()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-700 transition">
+              Use Interactive Home Server Simulation
+            </button>
+          </div>
+          <p id="connTestResult" class="text-xs font-mono-code text-slate-400"></p>
+        </div>
+
+        <!-- How to Open & Build Guide (No PC Needed) -->
+        <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 space-y-3 text-xs">
+          <h3 class="text-sm font-semibold text-white">No Computer? Install &amp; Use Directly From Your Android Phone</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+              <span class="text-[11px] font-mono-code text-emerald-400 uppercase font-semibold">Method 1: Install as Android Web App + Mobile SSH</span>
+              <p class="text-slate-300">1. Open this app in <strong>Chrome on Android</strong>, tap <strong>⋮ &gt; Add to Home screen</strong> to install it like a native full-screen app.</p>
+              <p class="text-slate-300">2. SSH into your home server from your phone and paste the 1-line command below to connect live Docker control.</p>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+              <span class="text-[11px] font-mono-code text-sky-400 uppercase font-semibold">Method 2: Cloud-Build the APK on Your Phone</span>
+              <p class="text-slate-300">1. Unzip <code class="text-sky-300 font-mono-code">dockdroid_android_source.zip</code> on your phone and upload the <code class="text-sky-300 font-mono-code">android-app</code> folder to a free GitHub repo in your mobile browser.</p>
+              <p class="text-slate-300">2. The included GitHub Actions workflow (<code class="text-sky-300 font-mono-code">build-apk.yml</code>) compiles <code class="text-emerald-300 font-mono-code">app-debug.apk</code> in the cloud for you to download on your phone.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SSH One-Click Update Command Reference -->
+        <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-white">SSH Commands Executed by DockDroid (`ssh user@host`)</h3>
+              <p class="text-xs text-slate-400">No extra containers needed—make sure your SSH user is in the <code class="font-mono-code text-slate-200">docker</code> group (<code class="font-mono-code text-sky-300">sudo usermod -aG docker $USER</code>).</p>
+            </div>
+            <button id="copyComposeBtn" onclick="copyCompanionCompose()" class="bg-slate-800 hover:bg-slate-700 text-xs text-sky-300 px-3 py-1.5 rounded-xl border border-slate-700 transition">Copy YAML</button>
+          </div>
+          <pre id="companionComposeCode" class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/90 text-[11px] font-mono-code text-slate-300 overflow-x-auto leading-relaxed">docker rm -f dockdroid 2&gt;/dev/null; docker run -d --name dockdroid --restart unless-stopped -p 8787:8787 -v /var/run/docker.sock:/var/run/docker.sock python:3.12-slim sh -c "pip install --no-cache-dir fastapi uvicorn docker psutil &amp;&amp; python3 -u -c '
+import os, time, psutil, docker, uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"] )
+client = docker.from_env()
+@app.get("/api/status")
+def status():
+    m, d = psutil.virtual_memory(), psutil.disk_usage("/")
+    cs = client.containers.list(all=True)
+    return {"hostname": os.uname().nodename, "cpu_percent": psutil.cpu_percent(0.1), "ram_used_gb": round(m.used/1e9,1), "ram_total_gb": round(m.total/1e9,1), "ram_percent": m.percent, "disk_used_gb": round(d.used/1e9,0), "disk_total_gb": round(d.total/1e9,0), "disk_percent": d.percent, "containers_total": len(cs), "containers_running": sum(1 for c in cs if c.status=="running")}
+@app.get("/api/containers")
+def containers(check_updates: bool = False):
+    out = []
+    for c in client.containers.list(all=True):
+        img = (c.image.tags or [c.attrs.get("Config",{}).get("Image","unknown")])[0]
+        out.append({"id": c.short_id, "name": c.name, "image": img, "status": c.status, "ports": list((c.attrs.get("NetworkSettings",{}).get("Ports") or {}).keys()), "update_available": False})
+    return {"containers": out}
+uvicorn.run(app, host="0.0.0.0", port=8787)
+'" &amp;&amp; echo "DockDroid Live Bridge running on port 8787!"</pre>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Container Details / Logs / Exec Bottom Modal -->
+    <div id="containerModal" class="hidden fixed inset-0 z-40 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-[#0f172a] border border-slate-700/80 w-full max-w-2xl rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+        <!-- Modal Header -->
+        <div class="px-4 py-3.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 id="modalContainerName" class="text-base font-bold text-white">jellyfin</h3>
+              <span id="modalContainerStatus" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium">running</span>
+            </div>
+            <p id="modalContainerImage" class="text-xs font-mono-code text-sky-400 mt-0.5">jellyfin/jellyfin:10.9.9</p>
+          </div>
+          <button id="closeModalBtn" onclick="closeContainerModal()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">✕</button>
+        </div>
+
+        <!-- Modal Sub-Navigation -->
+        <div class="px-4 pt-2 bg-slate-900/60 border-b border-slate-800 flex items-center gap-2 text-xs">
+          <button id="modalTabLogsBtn" onclick="switchModalTab('logs')" class="px-3 py-2 border-b-2 border-sky-400 text-sky-400 font-semibold">Live Logs</button>
+          <button id="modalTabExecBtn" onclick="switchModalTab('exec')" class="px-3 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium">Terminal Exec</button>
+          <button id="modalTabConfigBtn" onclick="switchModalTab('config')" class="px-3 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium">Mounts &amp; Policy</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-4 overflow-y-auto flex-1 space-y-3">
+          <!-- Sub-tab: Logs -->
+          <div id="modalViewLogs" class="space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5 text-xs">
+                <button id="logFilterAll" onclick="setLogFilter('ALL')" class="px-2.5 py-1 rounded-lg bg-sky-500 text-slate-950 font-medium">ALL</button>
+                <button id="logFilterInfo" onclick="setLogFilter('INFO')" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300">INFO</button>
+                <button id="logFilterWarn" onclick="setLogFilter('WARN')" class="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-300">WARN</button>
+                <button id="logFilterErr" onclick="setLogFilter('ERROR')" class="px-2.5 py-1 rounded-lg bg-slate-800 text-rose-300">ERROR</button>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button id="appendLogBtn" onclick="appendSimulatedLogLine()" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">+ Stream Line</button>
+                <button id="copyLogsBtn" onclick="copyContainerLogs()" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700">Copy Logs</button>
+              </div>
+            </div>
+            <div id="modalLogsOutput" class="bg-slate-950 rounded-xl p-3 border border-slate-800 font-mono-code text-[11px] leading-relaxed h-64 overflow-y-auto space-y-1"></div>
+          </div>
+
+          <!-- Sub-tab: Terminal Exec -->
+          <div id="modalViewExec" class="hidden space-y-2.5">
+            <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span class="text-slate-400">Quick commands:</span>
+              <button onclick="runExecCommand('ps aux')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 font-mono-code">ps aux</button>
+              <button onclick="runExecCommand('df -h')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 font-mono-code">df -h</button>
+              <button onclick="runExecCommand('env')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 font-mono-code">env</button>
+              <button onclick="runExecCommand('netstat -tlpn')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 font-mono-code">netstat -tlpn</button>
+            </div>
+            <div id="execTerminalOutput" class="bg-slate-950 rounded-xl p-3 border border-slate-800 font-mono-code text-[11px] text-emerald-300 h-52 overflow-y-auto whitespace-pre-wrap"></div>
+            <div class="flex gap-2">
+              <input id="execCommandInput" type="text" placeholder="Run command inside container (e.g. ls -la /config)..." onkeydown="if(event.key==='Enter') triggerExecInput()" class="flex-1 bg-slate-950 text-xs font-mono-code text-white px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-sky-500" />
+              <button id="execSendBtn" onclick="triggerExecInput()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs px-4 py-2 rounded-xl">Run</button>
+            </div>
+          </div>
+
+          <!-- Sub-tab: Mounts & Restart Policy -->
+          <div id="modalViewConfig" class="hidden space-y-3 text-xs">
+            <div class="bg-slate-900 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
+              <div>
+                <p class="font-semibold text-white">Restart Policy</p>
+                <p class="text-slate-400 text-[11px]">Controls how Docker daemon restarts this container on exit or reboot.</p>
+              </div>
+              <select id="modalRestartPolicySelect" onchange="updateContainerRestartPolicy(this.value)" class="bg-slate-800 text-xs text-slate-100 px-3 py-1.5 rounded-lg border border-slate-700">
+                <option value="unless-stopped">unless-stopped</option>
+                <option value="always">always</option>
+                <option value="on-failure">on-failure</option>
+                <option value="no">no</option>
+              </select>
+            </div>
+            <div class="bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-1.5">
+              <p class="font-semibold text-white">Bind Mounts &amp; Persistent Volumes</p>
+              <div id="modalMountsList" class="font-mono-code text-[11px] text-slate-300 space-y-1"></div>
+            </div>
+            <div class="bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-1.5">
+              <p class="font-semibold text-white">Environment &amp; Digest Info</p>
+              <div id="modalEnvList" class="font-mono-code text-[11px] text-slate-300 space-y-1"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="px-4 py-3 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <button id="modalStartStopBtn" onclick="modalToggleStartStop()" class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Stop</button>
+            <button id="modalRestartBtn" onclick="modalRestartContainer()" class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Restart</button>
+            <button id="modalRecreateBtn" onclick="modalRecreateContainer()" class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700">Recreate</button>
+          </div>
+          <button id="modalUpdateBtn" onclick="modalUpdateContainer()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950">1-Click Update</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Non-blocking Toast Notification -->
+    <div id="toastBanner" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-sky-500/40 text-slate-100 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs max-w-sm w-[92%]">
+      <span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
+      <span id="toastMessage" class="flex-1">Action completed.</span>
+    </div>
+
+    <!-- Bottom Android Navigation Bar -->
+    <nav class="sticky bottom-0 z-30 bg-[#080d1a]/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5">
+      <div class="grid grid-cols-4 gap-1 max-w-lg mx-auto">
+        <button id="navBtnContainers" onclick="switchMainTab('containers')" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-sky-400 bg-sky-500/10 font-medium text-[11px] transition">
+          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          <span>Containers</span>
+        </button>
+        <button id="navBtnStacks" onclick="switchMainTab('stacks')" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 font-medium text-[11px] transition">
+          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          <span>Stacks</span>
+        </button>
+        <button id="navBtnMaintenance" onclick="switchMainTab('maintenance')" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 font-medium text-[11px] transition">
+          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>Maintain</span>
+        </button>
+        <button id="navBtnConnect" onclick="switchMainTab('connect')" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 font-medium text-[11px] transition">
+          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span>Server API</span>
+        </button>
+      </div>
+    </nav>
+
+  </div>
+
+  <script>
+    // --- Application State ---
+    const SERVER_NODES = {
+      nas: {
+        name: "Home-NAS-Primary",
+        host: "192.168.1.50:8787",
+        cpu: 18,
+        ramText: "6.4/16G",
+        ramPct: 40,
+        diskText: "412G free",
+        diskPct: 58,
+        tempText: "44°C • 42d"
+      },
+      proxmox: {
+        name: "Proxmox-Media-VM",
+        host: "192.168.1.55:8787",
+        cpu: 34,
+        ramText: "11.2/24G",
+        ramPct: 47,
+        diskText: "1.8T free",
+        diskPct: 64,
+        tempText: "51°C • 19d"
+      },
+      rpi: {
+        name: "RPi5-Edge-DNS",
+        host: "192.168.1.60:8787",
+        cpu: 9,
+        ramText: "1.9/8G",
+        ramPct: 24,
+        diskText: "92G free",
+        diskPct: 28,
+        tempText: "39°C • 87d"
+      }
+    };
+
+    const INITIAL_CONTAINERS = [
+      {
+        id: "c1",
+        node: "nas",
+        name: "jellyfin",
+        image: "jellyfin/jellyfin",
+        currentTag: "10.9.9",
+        latestTag: "10.9.11",
+        localDigest: "sha256:7d4e9a1b",
+        remoteDigest: "sha256:9f2c8e41",
+        updateAvailable: true,
+        previousTag: null,
+        status: "running",
+        uptime: "14d 6h",
+        cpu: 11.4,
+        ramMb: 1420,
+        ports: ["8096:8096/tcp", "8920:8920/tcp"],
+        stack: "media-stack",
+        restartPolicy: "unless-stopped",
+        mounts: ["/mnt/media/movies:/media/movies:ro", "/srv/docker/jellyfin/config:/config:rw"],
+        env: ["TZ=Asia/Kolkata", "JELLYFIN_PublishedServerUrl=http://192.168.1.50:8096", "PUID=1000", "PGID=1000"],
+        logs: [
+          { ts: "23:01:10", level: "INFO", msg: "Jellyfin Server 10.9.9 initialized on [::]:8096" },
+          { ts: "23:03:42", level: "INFO", msg: "VAAPI hardware transcoding device /dev/dri/renderD128 ready" },
+          { ts: "23:06:19", level: "WARN", msg: "Slow metadata response from TMDB provider (1420ms)" },
+          { ts: "23:08:55", level: "INFO", msg: "DirectPlay session started for client AndroidTV-LivingRoom" }
+        ]
+      },
+      {
+        id: "c2",
+        node: "nas",
+        name: "immich-server",
+        image: "ghcr.io/immich-app/immich-server",
+        currentTag: "v1.118.0",
+        latestTag: "v1.120.1",
+        localDigest: "sha256:3a8b120e",
+        remoteDigest: "sha256:88c144fa",
+        updateAvailable: true,
+        previousTag: null,
+        status: "running",
+        uptime: "9d 18h",
+        cpu: 4.8,
+        ramMb: 1890,
+        ports: ["2283:2283/tcp"],
+        stack: "photos-cloud",
+        restartPolicy: "unless-stopped",
+        mounts: ["/mnt/nas/photos:/usr/src/app/upload:rw"],
+        env: ["DB_HOSTNAME=immich-postgres", "REDIS_HOSTNAME=immich-redis", "TZ=Asia/Kolkata"],
+        logs: [
+          { ts: "22:58:02", level: "INFO", msg: "[Nest] Immich Server listening on port 2283" },
+          { ts: "23:02:14", level: "INFO", msg: "Asset upload completed from Pixel-9-Pro (IMG_20261107.jpg)" },
+          { ts: "23:05:00", level: "INFO", msg: "Smart search CLIP embedding job finished (14 photos indexed)" }
+        ]
+      },
+      {
+        id: "c3",
+        node: "nas",
+        name: "traefik",
+        image: "traefik",
+        currentTag: "v3.1.2",
+        latestTag: "v3.2.0",
+        localDigest: "sha256:41bc0912",
+        remoteDigest: "sha256:55de908a",
+        updateAvailable: true,
+        previousTag: null,
+        status: "running",
+        uptime: "42d 3h",
+        cpu: 1.2,
+        ramMb: 94,
+        ports: ["80:80/tcp", "443:443/tcp", "8080:8080/tcp"],
+        stack: "reverse-proxy",
+        restartPolicy: "always",
+        mounts: ["/var/run/docker.sock:/var/run/docker.sock:ro", "/srv/docker/traefik/letsencrypt:/letsencrypt:rw"],
+        env: ["CF_DNS_API_TOKEN=••••••••••••", "TZ=Asia/Kolkata"],
+        logs: [
+          { ts: "22:40:12", level: "INFO", msg: "Configuration loaded from provider docker" },
+          { ts: "23:00:00", level: "INFO", msg: "ACME TLS certificate valid for *.home.arpa (68 days remaining)" },
+          { ts: "23:07:31", level: "WARN", msg: "Rate limiter triggered on route /api/auth from 192.168.1.114" }
+        ]
+      },
+      {
+        id: "c4",
+        node: "nas",
+        name: "pihole",
+        image: "pihole/pihole",
+        currentTag: "2024.07.0",
+        latestTag: "2024.10.0",
+        localDigest: "sha256:19f02a3c",
+        remoteDigest: "sha256:64b77d19",
+        updateAvailable: true,
+        previousTag: null,
+        status: "running",
+        uptime: "28d 11h",
+        cpu: 0.7,
+        ramMb: 128,
+        ports: ["53:53/udp", "53:53/tcp", "8053:80/tcp"],
+        stack: "network-dns",
+        restartPolicy: "unless-stopped",
+        mounts: ["/srv/docker/pihole/etc-pihole:/etc/pihole:rw", "/srv/docker/pihole/etc-dnsmasq.d:/etc/dnsmasq.d:rw"],
+        env: ["TZ=Asia/Kolkata", "FTLCONF_LOCAL_IPV4=192.168.1.50"],
+        logs: [
+          { ts: "23:01:05", level: "INFO", msg: "FTL started! Blocking 184,920 domains across 6 gravity lists" },
+          { ts: "23:06:44", level: "INFO", msg: "Blocked telemetry query metrics.icloud.com from 192.168.1.24" }
+        ]
+      },
+      {
+        id: "c5",
+        node: "nas",
+        name: "homeassistant",
+        image: "ghcr.io/home-assistant/home-assistant",
+        currentTag: "2024.11.1",
+        latestTag: "2024.11.1",
+        localDigest: "sha256:92ac41f0",
+        remoteDigest: "sha256:92ac41f0",
+        updateAvailable: false,
+        previousTag: null,
+        status: "running",
+        uptime: "6d 4h",
+        cpu: 3.1,
+        ramMb: 610,
+        ports: ["8123:8123/tcp"],
+        stack: "smart-home",
+        restartPolicy: "unless-stopped",
+        mounts: ["/srv/docker/hass/config:/config:rw", "/run/dbus:/run/dbus:ro"],
+        env: ["TZ=Asia/Kolkata"],
+        logs: [
+          { ts: "23:00:01", level: "INFO", msg: "MQTT broker connected (48 Zigbee2MQTT entities online)" },
+          { ts: "23:08:12", level: "INFO", msg: "Automation triggered: Night Mode Living Room" }
+        ]
+      },
+      {
+        id: "c6",
+        node: "nas",
+        name: "wireguard-easy",
+        image: "ghcr.io/wg-easy/wg-easy",
+        currentTag: "14.0.0",
+        latestTag: "14.0.0",
+        localDigest: "sha256:50e19b82",
+        remoteDigest: "sha256:50e19b82",
+        updateAvailable: false,
+        previousTag: null,
+        status: "running",
+        uptime: "42d 3h",
+        cpu: 0.4,
+        ramMb: 62,
+        ports: ["51820:51820/udp", "51821:51821/tcp"],
+        stack: "network-dns",
+        restartPolicy: "always",
+        mounts: ["/srv/docker/wireguard:/etc/wireguard:rw"],
+        env: ["WG_HOST=vpn.home.arpa", "WG_PORT=51820"],
+        logs: [
+          { ts: "22:55:19", level: "INFO", msg: "Peer handshake completed: Android-Phone (10.8.0.2)" }
+        ]
+      },
+      {
+        id: "c7",
+        node: "nas",
+        name: "vaultwarden",
+        image: "vaultwarden/server",
+        currentTag: "1.32.2",
+        latestTag: "1.32.2",
+        localDigest: "sha256:77c82a10",
+        remoteDigest: "sha256:77c82a10",
+        updateAvailable: false,
+        previousTag: null,
+        status: "running",
+        uptime: "42d 3h",
+        cpu: 0.2,
+        ramMb: 48,
+        ports: ["8222:80/tcp"],
+        stack: "reverse-proxy",
+        restartPolicy: "always",
+        mounts: ["/srv/docker/vaultwarden/data:/data:rw"],
+        env: ["SIGNUPS_ALLOWED=false", "WEBSOCKET_ENABLED=true"],
+        logs: [
+          { ts: "23:04:11", level: "INFO", msg: "Rocket HTTP server listening on 0.0.0.0:80" }
+        ]
+      },
+      {
+        id: "c8",
+        node: "nas",
+        name: "uptime-kuma",
+        image: "louislam/uptime-kuma",
+        currentTag: "1.23.15",
+        latestTag: "1.23.15",
+        localDigest: "sha256:88f12c04",
+        remoteDigest: "sha256:88f12c04",
+        updateAvailable: false,
+        previousTag: null,
+        status: "running",
+        uptime: "21d 9h",
+        cpu: 1.1,
+        ramMb: 175,
+        ports: ["3001:3001/tcp"],
+        stack: "monitoring",
+        restartPolicy: "unless-stopped",
+        mounts: ["/srv/docker/uptime-kuma/data:/app/data:rw"],
+        env: ["TZ=Asia/Kolkata"],
+        logs: [
+          { ts: "23:08:00", level: "INFO", msg: "All 18 home server HTTP/TCP monitors healthy (avg ping 4ms)" }
+        ]
+      },
+      {
+        id: "c9",
+        node: "nas",
+        name: "qbittorrent-nox",
+        image: "lscr.io/linuxserver/qbittorrent",
+        currentTag: "4.6.7",
+        latestTag: "4.6.7",
+        localDigest: "sha256:12b49d77",
+        remoteDigest: "sha256:12b49d77",
+        updateAvailable: false,
+        previousTag: null,
+        status: "exited",
+        uptime: "Stopped 3h ago",
+        cpu: 0.0,
+        ramMb: 0,
+        ports: ["8085:8085/tcp", "6881:6881/tcp"],
+        stack: "media-stack",
+        restartPolicy: "no",
+        mounts: ["/mnt/media/downloads:/downloads:rw", "/srv/docker/qbittorrent:/config:rw"],
+        env: ["PUID=1000", "PGID=1000", "WEBUI_PORT=8085"],
+        logs: [
+          { ts: "20:04:19", level: "INFO", msg: "SIGTERM received, flushing torrent session state cleanly" },
+          { ts: "20:04:20", level: "ERROR", msg: "Container exited with status code 0 (Manual Stop)" }
+        ]
+      }
+    ];
+
+    const COMPOSE_STACKS = [
+      {
+        id: "s1",
+        name: "media-stack",
+        path: "/srv/docker/media-stack/docker-compose.yml",
+        services: ["jellyfin", "qbittorrent-nox"],
+        status: "active",
+        lastUpdated: "2 days ago",
+        yaml: "services:\n  jellyfin:\n    image: jellyfin/jellyfin:latest\n    restart: unless-stopped\n    ports:\n      - 8096:8096\n  qbittorrent-nox:\n    image: lscr.io/linuxserver/qbittorrent:latest\n    ports:\n      - 8085:8085"
+      },
+      {
+        id: "s2",
+        name: "photos-cloud",
+        path: "/srv/docker/immich/docker-compose.yml",
+        services: ["immich-server", "immich-postgres", "immich-redis"],
+        status: "active",
+        lastUpdated: "9 days ago",
+        yaml: "services:\n  immich-server:\n    image: ghcr.io/immich-app/immich-server:release\n    restart: unless-stopped\n    ports:\n      - 2283:2283"
+      },
+      {
+        id: "s3",
+        name: "reverse-proxy",
+        path: "/srv/docker/proxy/docker-compose.yml",
+        services: ["traefik", "vaultwarden"],
+        status: "active",
+        lastUpdated: "14 days ago",
+        yaml: "services:\n  traefik:\n    image: traefik:v3.2\n    restart: always\n    ports:\n      - 80:80\n      - 443:443\n  vaultwarden:\n    image: vaultwarden/server:latest"
+      },
+      {
+        id: "s4",
+        name: "network-dns",
+        path: "/srv/docker/network/docker-compose.yml",
+        services: ["pihole", "wireguard-easy"],
+        status: "active",
+        lastUpdated: "28 days ago",
+        yaml: "services:\n  pihole:\n    image: pihole/pihole:latest\n    restart: unless-stopped\n  wireguard-easy:\n    image: ghcr.io/wg-easy/wg-easy:14"
+      }
+    ];
+
+    let state = {
+      activeTab: "containers",
+      activeNode: "nas",
+      phoneViewport: false,
+      filter: "all",
+      search: "",
+      updatingIds: {},
+      selectedContainerId: null,
+      modalTab: "logs",
+      logFilter: "ALL",
+      liveApiEnabled: false,
+      serverUrl: "http://192.168.1.50:8787",
+      apiKey: "changeme-home-server-key",
+      reclaimable: {
+        images: 4.20,
+        cache: 1.95,
+        volumes: 0.70
+      },
+      rules: {
+        digestCheck: true,
+        autoPrune: true,
+        autoRollback: true
+      },
+      containers: JSON.parse(JSON.stringify(INITIAL_CONTAINERS)),
+      auditLog: [
+        "[22:45:10] Registry scan completed: 4 new image digests detected on Home-NAS-Primary",
+        "[18:20:04] Auto-healthcheck verified all 8 running containers (0 restarts)",
+        "[Yesterday] Pruned 3 dangling images (reclaimed 1.42 GB)"
+      ]
+    };
+
+    // --- Toast Helper ---
+    let toastTimer = null;
+    function showToast(msg) {
+      const banner = document.getElementById("toastBanner");
+      const text = document.getElementById("toastMessage");
+      if (!banner || !text) return;
+      text.textContent = msg;
+      banner.classList.remove("hidden");
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        banner.classList.add("hidden");
+      }, 3400);
+    }
+
+    function addAuditEntry(msg) {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
+      state.auditLog.unshift(`[${hh}:${mm}:${ss}] ${msg}`);
+      renderAuditLog();
+    }
+
+    // --- Viewport Mode Toggle (Phone Frame vs Full Responsive) ---
+    function toggleViewportMode() {
+      state.phoneViewport = !state.phoneViewport;
+      const shell = document.getElementById("appShell");
+      const label = document.getElementById("viewportBtnLabel");
+      if (state.phoneViewport) {
+        shell.className = "phone-shell flex flex-col bg-[#0b1120] relative";
+        label.textContent = "Full Width";
+      } else {
+        shell.className = "full-shell flex flex-col bg-[#0b1120] relative";
+        label.textContent = "Phone View";
+      }
+    }
+
+    // --- Server Node Switching ---
+    function switchServerNode(nodeKey) {
+      state.activeNode = nodeKey;
+      const node = SERVER_NODES[nodeKey] || SERVER_NODES.nas;
+      document.getElementById("activeServerSubtitle").textContent = `${node.name} • ${node.host}`;
+      document.getElementById("metricCpuText").textContent = `${node.cpu}%`;
+      document.getElementById("metricCpuBar").style.width = `${node.cpu}%`;
+      document.getElementById("metricRamText").textContent = node.ramText;
+      document.getElementById("metricRamBar").style.width = `${node.ramPct}%`;
+      document.getElementById("metricDiskText").textContent = node.diskText;
+      document.getElementById("metricDiskBar").style.width = `${node.diskPct}%`;
+      document.getElementById("metricTempText").textContent = node.tempText;
+      renderContainers();
+      showToast(`Switched active host to ${node.name}`);
+    }
+
+    // --- Main Navigation Tabs ---
+    function switchMainTab(tab) {
+      state.activeTab = tab;
+      const sections = {
+        containers: document.getElementById("tabContainers"),
+        stacks: document.getElementById("tabStacks"),
+        maintenance: document.getElementById("tabMaintenance"),
+        connect: document.getElementById("tabConnect")
+      };
+      const navBtns = {
+        containers: document.getElementById("navBtnContainers"),
+        stacks: document.getElementById("navBtnStacks"),
+        maintenance: document.getElementById("navBtnMaintenance"),
+        connect: document.getElementById("navBtnConnect")
+      };
+      Object.keys(sections).forEach(k => {
+        if (k === tab) {
+          sections[k].classList.remove("hidden");
+          navBtns[k].className = "flex flex-col items-center justify-center py-1.5 rounded-xl text-sky-400 bg-sky-500/10 font-medium text-[11px] transition";
+        } else {
+          sections[k].classList.add("hidden");
+          navBtns[k].className = "flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 font-medium text-[11px] transition";
+        }
+      });
+      if (tab === "stacks") renderStacks();
+      if (tab === "maintenance") {
+        renderMaintenanceTotals();
+        renderAuditLog();
+      }
+    }
+
+    // --- Search & Filtering ---
+    function setSearchQuery(q) {
+      state.search = (q || "").trim().toLowerCase();
+      const clearBtn = document.getElementById("clearSearchBtn");
+      if (state.search.length > 0) {
+        clearBtn.classList.remove("hidden");
+      } else {
+        clearBtn.classList.add("hidden");
+      }
+      renderContainers();
+    }
+
+    function clearSearchQuery() {
+      const input = document.getElementById("containerSearchInput");
+      input.value = "";
+      setSearchQuery("");
+    }
+
+    function setContainerFilter(filter) {
+      state.filter = filter;
+      renderContainers();
+    }
+
+    // --- Render Containers List & Banner ---
+    function renderContainers() {
+      const total = state.containers.length;
+      const updatesCount = state.containers.filter(c => c.updateAvailable).length;
+      const runningCount = state.containers.filter(c => c.status === "running").length;
+      const stoppedCount = state.containers.filter(c => c.status !== "running").length;
+
+      document.getElementById("metricSummaryText").textContent = `${runningCount} running • ${stoppedCount} stopped`;
+
+      // Update Filter Buttons
+      const btnMap = {
+        all: { el: document.getElementById("filterBtnAll"), label: `All (${total})` },
+        updates: { el: document.getElementById("filterBtnUpdates"), label: `Updates (${updatesCount})` },
+        running: { el: document.getElementById("filterBtnRunning"), label: `Running (${runningCount})` },
+        stopped: { el: document.getElementById("filterBtnStopped"), label: `Stopped (${stoppedCount})` }
+      };
+      Object.keys(btnMap).forEach(k => {
+        const item = btnMap[k];
+        item.el.textContent = item.label;
+        if (state.filter === k) {
+          item.el.className = "px-3 py-2 rounded-xl text-xs font-semibold bg-sky-500 text-slate-950 whitespace-nowrap transition";
+        } else {
+          item.el.className = "px-3 py-2 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition";
+        }
+      });
+
+      // Update Banner
+      const bannerTitle = document.getElementById("updateBannerTitle");
+      const bannerSub = document.getElementById("updateBannerSub");
+      const updateAllBtn = document.getElementById("updateAllBtn");
+      const updateAllLabel = document.getElementById("updateAllBtnLabel");
+
+      if (updatesCount > 0) {
+        bannerTitle.textContent = `${updatesCount} Container Update${updatesCount > 1 ? "s" : ""} Available`;
+        bannerSub.textContent = "One-click update pulls new layers, backs up config, and recreates containers with zero data loss.";
+        updateAllBtn.disabled = false;
+        updateAllBtn.className = "w-full sm:w-auto bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition";
+        updateAllLabel.textContent = `1-Click Update All (${updatesCount})`;
+      } else {
+        bannerTitle.textContent = "All Containers Up to Date";
+        bannerSub.textContent = "Every container matches its latest upstream registry digest on Docker Hub & GHCR.";
+        updateAllBtn.disabled = true;
+        updateAllBtn.className = "w-full sm:w-auto bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold text-xs px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-default";
+        updateAllLabel.textContent = "All Digests Current ✓";
+      }
+
+      // Filter containers
+      const filtered = state.containers.filter(c => {
+        if (state.filter === "updates" && !c.updateAvailable) return false;
+        if (state.filter === "running" && c.status !== "running") return false;
+        if (state.filter === "stopped" && c.status === "running") return false;
+        if (state.search) {
+          const hay = `${c.name} ${c.image} ${c.currentTag} ${c.stack} ${c.ports.join(" ")}`.toLowerCase();
+          if (!hay.includes(state.search)) return false;
+        }
+        return true;
+      });
+
+      const listEl = document.getElementById("containersList");
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div class="col-span-full rounded-2xl bg-slate-900/60 border border-slate-800 p-8 text-center space-y-2">
+            <p class="text-sm font-semibold text-slate-300">No containers match your current filter</p>
+            <p class="text-xs text-slate-500">Try switching the filter pill or clearing the search box.</p>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(c => {
+        const isRunning = c.status === "running";
+        const isUpdating = Boolean(state.updatingIds[c.id]);
+        const statusBadge = isUpdating
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30">updating...</span>`
+          : isRunning
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>running</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30">stopped</span>`;
+
+        const versionSection = c.updateAvailable
+          ? `<div class="mt-2.5 p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-2">
+               <div class="text-[11px] font-mono-code">
+                 <span class="text-slate-400">${c.currentTag}</span>
+                 <span class="text-amber-400 mx-1">→</span>
+                 <span class="text-amber-300 font-semibold">${c.latestTag}</span>
+                 <span class="block text-[10px] text-slate-400">New digest: ${c.remoteDigest}</span>
+               </div>
+               <button onclick="updateSingleContainer('${c.id}')" ${isUpdating ? "disabled" : ""} class="bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-semibold text-xs px-3 py-1.5 rounded-lg shadow transition shrink-0">
+                 ${isUpdating ? "Updating..." : "1-Click Update"}
+               </button>
+             </div>`
+          : `<div class="mt-2.5 px-2.5 py-1.5 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between text-[11px] font-mono-code">
+               <span class="text-slate-400">Tag: <strong class="text-slate-200">${c.currentTag}</strong> (${c.localDigest})</span>
+               ${c.previousTag ? `<button onclick="rollbackContainer('${c.id}')" class="text-amber-300 hover:text-amber-200 underline text-[10px]">Rollback to ${c.previousTag}</button>` : `<span class="text-emerald-400 text-[10px]">✓ Latest</span>`}
+             </div>`;
+
+        return `
+          <div class="rounded-2xl bg-slate-900/90 border ${c.updateAvailable ? "border-amber-500/35" : "border-slate-800"} p-3.5 flex flex-col justify-between transition hover:border-slate-700">
+            <div>
+              <!-- Top Row -->
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-bold text-white truncate">${c.name}</h3>
+                    <span class="text-[10px] font-mono-code px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">${c.stack}</span>
+                  </div>
+                  <p class="text-xs font-mono-code text-sky-400 truncate mt-0.5">${c.image}:${c.currentTag}</p>
+                </div>
+                ${statusBadge}
+              </div>
+
+              <!-- Version / 1-Click Update Callout -->
+              ${versionSection}
+
+              <!-- Telemetry & Ports Row -->
+              <div class="grid grid-cols-3 gap-2 mt-2.5 pt-2.5 border-t border-slate-800/70 text-[11px]">
+                <div>
+                  <span class="text-slate-500 block text-[10px]">CPU / RAM</span>
+                  <span class="font-mono-code text-slate-200">${isRunning ? `${c.cpu}% • ${c.ramMb}MB` : "0% • 0MB"}</span>
+                </div>
+                <div>
+                  <span class="text-slate-500 block text-[10px]">Ports</span>
+                  <span class="font-mono-code text-slate-300 truncate block" title="${c.ports.join(", ")}">${c.ports[0] || "internal"}</span>
+                </div>
+                <div>
+                  <span class="text-slate-500 block text-[10px]">Uptime</span>
+                  <span class="font-mono-code text-slate-300">${c.uptime}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Maintenance Controls -->
+            <div class="flex items-center justify-between gap-1.5 mt-3 pt-2.5 border-t border-slate-800/80">
+              <div class="flex items-center gap-1.5">
+                <button onclick="toggleContainerPower('${c.id}')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium ${isRunning ? "bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300" : "bg-emerald-500/20 text-emerald-300"} border border-slate-700/80 transition">
+                  ${isRunning ? "Stop" : "Start"}
+                </button>
+                <button onclick="restartContainer('${c.id}')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 transition">
+                  Restart
+                </button>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button onclick="openContainerModal('${c.id}', 'logs')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700/80 transition">
+                  Logs
+                </button>
+                <button onclick="openContainerModal('${c.id}', 'exec')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition">
+                  Maintain ⋯
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // --- One-Click Update Engine (Single & Batch) ---
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function updateSingleContainer(containerId, silentBatch = false) {
+      const c = state.containers.find(item => item.id === containerId);
+      if (!c || state.updatingIds[containerId]) return;
+
+      state.updatingIds[containerId] = true;
+      renderContainers();
+
+      const progressBox = document.getElementById("updateProgressBox");
+      const progressTitle = document.getElementById("updateProgressTitle");
+      const progressStep = document.getElementById("updateProgressStep");
+      const progressBar = document.getElementById("updateProgressBar");
+      const progressDetail = document.getElementById("updateProgressDetail");
+
+      progressBox.classList.remove("hidden");
+
+      const oldTag = c.currentTag;
+      const targetTag = c.latestTag;
+
+      if (state.liveApiEnabled) {
+        progressTitle.textContent = `Updating ${c.name} on Live Home Server...`;
+        progressStep.textContent = "Live SSH/Docker";
+        progressBar.style.width = "60%";
+        progressDetail.textContent = `Pulling latest image & recreating ${c.name} on ${state.serverUrl}...`;
+        try {
+          const base = state.serverUrl.replace(/\/+$/, "");
+          const updUrl = `${base}/api/containers/${encodeURIComponent(c.name)}/update`;
+          const resp = await fetch(updUrl, { method: "POST", headers: { "X-API-Key": state.apiKey } });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          progressBar.style.width = "100%";
+          delete state.updatingIds[containerId];
+          await syncLiveServerData(false);
+          if (!silentBatch) {
+            progressBox.classList.add("hidden");
+            showToast(`Updated & recreated ${c.name} on home server!`);
+          }
+          return;
+        } catch (e) {
+          delete state.updatingIds[containerId];
+          progressBox.classList.add("hidden");
+          showToast(`Live update error: ${e.message}`);
+          renderContainers();
+          return;
+        }
+      }
+
+      // Step 1: Pull latest image layers
+      progressTitle.textContent = `Updating ${c.name} (${oldTag} → ${targetTag})`;
+      progressStep.textContent = "Step 1/4";
+      progressBar.style.width = "25%";
+      progressDetail.textContent = `docker pull ${c.image}:${targetTag} (${c.remoteDigest})...`;
+      await sleep(450);
+
+      // Step 2: Backup & Stop old container
+      progressStep.textContent = "Step 2/4";
+      progressBar.style.width = "55%";
+      progressDetail.textContent = `Stopping ${c.name} & snapshotting config to ${c.name}_backup...`;
+      await sleep(400);
+
+      // Step 3: Recreate with identical mounts, ports, and env
+      progressStep.textContent = "Step 3/4";
+      progressBar.style.width = "82%";
+      progressDetail.textContent = `Recreating ${c.name} with ${c.mounts.length} bind mounts & ${c.ports.length} port bindings...`;
+      await sleep(450);
+
+      // Step 4: Verify healthcheck & prune old layer if rule enabled
+      progressStep.textContent = "Step 4/4";
+      progressBar.style.width = "100%";
+      progressDetail.textContent = `Healthcheck passed! Container ${c.name} is up on ${targetTag}.`;
+      await sleep(350);
+
+      c.previousTag = oldTag;
+      c.currentTag = targetTag;
+      c.localDigest = c.remoteDigest;
+      c.updateAvailable = false;
+      c.status = "running";
+      c.uptime = "Just updated (1m)";
+      c.logs.push({
+        ts: new Date().toTimeString().slice(0, 8),
+        level: "INFO",
+        msg: `Updated container image from ${oldTag} to ${targetTag} (${c.localDigest}) via DockDroid 1-Click Update`
+      });
+
+      delete state.updatingIds[containerId];
+
+      if (!state.rules.autoPrune) {
+        state.reclaimable.images = +(state.reclaimable.images + 0.35).toFixed(2);
+      }
+
+      addAuditEntry(`Updated ${c.name} from ${oldTag} to ${targetTag} (${c.localDigest})`);
+      renderContainers();
+
+      if (state.selectedContainerId === containerId) {
+        openContainerModal(containerId, state.modalTab);
+      }
+
+      if (!silentBatch) {
+        progressBox.classList.add("hidden");
+        showToast(`Updated ${c.name} to ${targetTag}`);
+      }
+    }
+
+    async function updateAllContainers() {
+      const pending = state.containers.filter(c => c.updateAvailable);
+      if (pending.length === 0) {
+        showToast("All containers are already on the latest registry digest.");
+        return;
+      }
+      for (let i = 0; i < pending.length; i++) {
+        await updateSingleContainer(pending[i].id, true);
+      }
+      document.getElementById("updateProgressBox").classList.add("hidden");
+      showToast(`Completed 1-Click Update for all ${pending.length} containers!`);
+    }
+
+    function rollbackContainer(containerId) {
+      const c = state.containers.find(item => item.id === containerId);
+      if (!c || !c.previousTag) return;
+      const revertedFrom = c.currentTag;
+      c.latestTag = revertedFrom;
+      c.currentTag = c.previousTag;
+      c.previousTag = null;
+      c.updateAvailable = true;
+      c.uptime = "Rolled back (1m)";
+      c.logs.push({
+        ts: new Date().toTimeString().slice(0, 8),
+        level: "WARN",
+        msg: `Rolled back image from ${revertedFrom} to backup tag ${c.currentTag}`
+      });
+      addAuditEntry(`Rolled back ${c.name} to previous image tag ${c.currentTag}`);
+      renderContainers();
+      showToast(`Rolled back ${c.name} to ${c.currentTag}`);
+    }
+
+    async function checkForRegistryUpdates() {
+      const icon = document.getElementById("checkRegistryIcon");
+      icon.classList.add("animate-spin");
+      showToast("Scanning Docker Hub, GHCR & LinuxServer.io digests...");
+      await sleep(600);
+      icon.classList.remove("animate-spin");
+
+      // Simulate discovering an update on homeassistant if all updates were already applied
+      const pendingCount = state.containers.filter(c => c.updateAvailable).length;
+      if (pendingCount === 0) {
+        const hass = state.containers.find(c => c.name === "homeassistant");
+        if (hass && !hass.updateAvailable) {
+          hass.latestTag = "2024.11.2";
+          hass.remoteDigest = "sha256:b4190ef2";
+          hass.updateAvailable = true;
+        }
+      }
+      const newCount = state.containers.filter(c => c.updateAvailable).length;
+      addAuditEntry(`Registry digest check finished (${newCount} update${newCount === 1 ? "" : "s"} available)`);
+      renderContainers();
+      showToast(`Registry scan complete: ${newCount} update${newCount === 1 ? "" : "s"} ready.`);
+    }
+
+    // --- Container Power & Lifecycle Actions ---
+    async function toggleContainerPower(containerId) {
+      const c = state.containers.find(item => item.id === containerId);
+      if (!c) return;
+      if (state.liveApiEnabled) {
+        const nextAction = c.status === "running" ? "stop" : "start";
+        showToast(`Sending docker ${nextAction} ${c.name} to server...`);
+        try {
+          const base = state.serverUrl.replace(/\/+$/, "");
+          const actionUrl = `${base}/api/containers/${encodeURIComponent(c.name)}/action?action=${nextAction}`;
+          await fetch(actionUrl, { method: "POST", headers: { "X-API-Key": state.apiKey } });
+          await syncLiveServerData(false);
+          showToast(`Server: ${c.name} ${nextAction}ed!`);
+          return;
+        } catch (e) {
+          showToast(`Live action error: ${e.message}`);
+        }
+      }
+      if (c.status === "running") {
+        c.status = "exited";
+        c.uptime = "Stopped just now";
+        c.cpu = 0.0;
+        c.ramMb = 0;
+        c.logs.push({ ts: new Date().toTimeString().slice(0, 8), level: "WARN", msg: "Container stopped via DockDroid Android client" });
+        addAuditEntry(`Stopped container ${c.name}`);
+        showToast(`Stopped ${c.name}`);
+      } else {
+        c.status = "running";
+        c.uptime = "Up 1m";
+        c.cpu = 1.6;
+        c.ramMb = 210;
+        c.logs.push({ ts: new Date().toTimeString().slice(0, 8), level: "INFO", msg: "Container started and passed healthcheck" });
+        addAuditEntry(`Started container ${c.name}`);
+        showToast(`Started ${c.name}`);
+      }
+      renderContainers();
+      if (state.selectedContainerId === containerId) {
+        openContainerModal(containerId, state.modalTab);
+      }
+    }
+
+    async function restartContainer(containerId) {
+      const c = state.containers.find(item => item.id === containerId);
+      if (!c) return;
+      if (state.liveApiEnabled) {
+        showToast(`Restarting ${c.name} on home server...`);
+        try {
+          const base = state.serverUrl.replace(/\/+$/, "");
+          const actionUrl = `${base}/api/containers/${encodeURIComponent(c.name)}/action?action=restart`;
+          await fetch(actionUrl, { method: "POST", headers: { "X-API-Key": state.apiKey } });
+          await syncLiveServerData(false);
+          showToast(`Server: Restarted ${c.name}!`);
+          return;
+        } catch (e) {
+          showToast(`Restart error: ${e.message}`);
+        }
+      }
+      c.status = "running";
+      c.uptime = "Restarted (10s ago)";
+      c.logs.push({ ts: new Date().toTimeString().slice(0, 8), level: "INFO", msg: "Container restarted cleanly" });
+      addAuditEntry(`Restarted container ${c.name}`);
+      renderContainers();
+      if (state.selectedContainerId === containerId) {
+        openContainerModal(containerId, state.modalTab);
+      }
+      showToast(`Restarted ${c.name}`);
+    }
+
+    // --- Container Details Modal (Logs, Exec, Mounts) ---
+    function openContainerModal(containerId, defaultTab = "logs") {
+      const c = state.containers.find(item => item.id === containerId);
+      if (!c) return;
+      state.selectedContainerId = containerId;
+
+      document.getElementById("modalContainerName").textContent = c.name;
+      document.getElementById("modalContainerImage").textContent = `${c.image}:${c.currentTag} (${c.localDigest})`;
+      const statusEl = document.getElementById("modalContainerStatus");
+      if (c.status === "running") {
+        statusEl.textContent = "running";
+        statusEl.className = "text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium";
+      } else {
+        statusEl.textContent = "stopped";
+        statusEl.className = "text-[11px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-medium";
+      }
+
+      document.getElementById("modalStartStopBtn").textContent = c.status === "running" ? "Stop" : "Start";
+      const modalUpdateBtn = document.getElementById("modalUpdateBtn");
+      if (c.updateAvailable) {
+        modalUpdateBtn.textContent = `1-Click Update (${c.latestTag})`;
+        modalUpdateBtn.disabled = false;
+        modalUpdateBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950";
+      } else {
+        modalUpdateBtn.textContent = "Up to Date ✓";
+        modalUpdateBtn.disabled = true;
+        modalUpdateBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-emerald-400 cursor-default";
+      }
+
+      // Populate Config tab
+      document.getElementById("modalRestartPolicySelect").value = c.restartPolicy;
+      document.getElementById("modalMountsList").innerHTML = c.mounts.map(m => `<div class="p-1.5 rounded bg-slate-950 border border-slate-800">${m}</div>`).join("");
+      document.getElementById("modalEnvList").innerHTML = c.env.map(e => `<div class="p-1.5 rounded bg-slate-950 border border-slate-800">${e}</div>`).join("");
+
+      // Populate Exec terminal welcome
+      document.getElementById("execTerminalOutput").textContent = `Connected to /bin/sh inside container [${c.name}] (${c.localDigest})\nroot@${c.name}:/# `;
+
+      switchModalTab(defaultTab);
+      renderModalLogs();
+      document.getElementById("containerModal").classList.remove("hidden");
+    }
+
+    function closeContainerModal() {
+      state.selectedContainerId = null;
+      document.getElementById("containerModal").classList.add("hidden");
+    }
+
+    function switchModalTab(tab) {
+      state.modalTab = tab;
+      const views = {
+        logs: document.getElementById("modalViewLogs"),
+        exec: document.getElementById("modalViewExec"),
+        config: document.getElementById("modalViewConfig")
+      };
+      const btns = {
+        logs: document.getElementById("modalTabLogsBtn"),
+        exec: document.getElementById("modalTabExecBtn"),
+        config: document.getElementById("modalTabConfigBtn")
+      };
+      Object.keys(views).forEach(k => {
+        if (k === tab) {
+          views[k].classList.remove("hidden");
+          btns[k].className = "px-3 py-2 border-b-2 border-sky-400 text-sky-400 font-semibold";
+        } else {
+          views[k].classList.add("hidden");
+          btns[k].className = "px-3 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium";
+        }
+      });
+    }
+
+    function setLogFilter(level) {
+      state.logFilter = level;
+      const map = {
+        ALL: document.getElementById("logFilterAll"),
+        INFO: document.getElementById("logFilterInfo"),
+        WARN: document.getElementById("logFilterWarn"),
+        ERROR: document.getElementById("logFilterErr")
+      };
+      Object.keys(map).forEach(k => {
+        if (k === level) {
+          map[k].className = "px-2.5 py-1 rounded-lg bg-sky-500 text-slate-950 font-semibold";
+        } else {
+          map[k].className = "px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300";
+        }
+      });
+      renderModalLogs();
+    }
+
+    function renderModalLogs() {
+      const c = state.containers.find(item => item.id === state.selectedContainerId);
+      if (!c) return;
+      const logsEl = document.getElementById("modalLogsOutput");
+      const rows = c.logs.filter(l => state.logFilter === "ALL" || l.level === state.logFilter);
+      if (rows.length === 0) {
+        logsEl.innerHTML = `<div class="text-slate-500">No log lines matching ${state.logFilter}.</div>`;
+        return;
+      }
+      logsEl.innerHTML = rows.map(l => {
+        const badgeColor = l.level === "ERROR" ? "text-rose-400" : l.level === "WARN" ? "text-amber-300" : "text-sky-400";
+        return `<div><span class="text-slate-500">${l.ts}</span> <span class="${badgeColor} font-semibold">[${l.level}]</span> <span class="text-slate-200">${l.msg}</span></div>`;
+      }).join("");
+      logsEl.scrollTop = logsEl.scrollHeight;
+    }
+
+    function appendSimulatedLogLine() {
+      const c = state.containers.find(item => item.id === state.selectedContainerId);
+      if (!c) return;
+      const ts = new Date().toTimeString().slice(0, 8);
+      c.logs.push({
+        ts,
+        level: "INFO",
+        msg: `Healthcheck ping OK (latency ${(Math.random() * 4 + 1).toFixed(1)}ms, memory ${c.ramMb}MB)`
+      });
+      renderModalLogs();
+    }
+
+    function copyTextFallback(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    function copyContainerLogs() {
+      const c = state.containers.find(item => item.id === state.selectedContainerId);
+      if (!c) return;
+      const text = c.logs.map(l => `${l.ts} [${l.level}] ${l.msg}`).join("\n");
+      copyTextFallback(text);
+      showToast(`Copied ${c.logs.length} log lines from ${c.name}`);
+    }
+
+    function runExecCommand(cmd) {
+      const c = state.containers.find(item => item.id === state.selectedContainerId);
+      if (!c) return;
+      const outEl = document.getElementById("execTerminalOutput");
+      const clean = (cmd || "").trim();
+      if (!clean) return;
+      let resp = "";
+      if (clean === "ps aux") {
+        resp = `PID   USER     TIME  COMMAND\n  1   root     0:14  /init\n 42   abc      2:19  ${c.image.split("/").pop()} --config /config\n 88   root     0:00  /bin/sh`;
+      } else if (clean === "df -h") {
+        resp = `Filesystem      Size  Used Avail Use% Mounted on\noverlay         916G  504G  412G  55% /\n/dev/nvme0n1p2  916G  504G  412G  55% /config`;
+      } else if (clean === "env") {
+        resp = c.env.join("\n");
+      } else if (clean === "netstat -tlpn") {
+        resp = `Active Internet connections (only servers)\nProto Local Address   State       PID/Program name\ntcp   0.0.0.0:${(c.ports[0] || "80").split(":")[0]}    LISTEN      42/${c.name}`;
+      } else {
+        resp = `Executed '${clean}' inside ${c.name} (exit code 0)`;
+      }
+      outEl.textContent += `${clean}\n${resp}\nroot@${c.name}:/# `;
+      outEl.scrollTop = outEl.scrollHeight;
+    }
+
+    function triggerExecInput() {
+      const input = document.getElementById("execCommandInput");
+      if (!input.value.trim()) return;
+      runExecCommand(input.value);
+      input.value = "";
+    }
+
+    function updateContainerRestartPolicy(newPolicy) {
+      const c = state.containers.find(item => item.id === state.selectedContainerId);
+      if (!c) return;
+      c.restartPolicy = newPolicy;
+      addAuditEntry(`Updated restart policy for ${c.name} to '${newPolicy}'`);
+      showToast(`Restart policy for ${c.name} set to ${newPolicy}`);
+    }
+
+    function modalToggleStartStop() {
+      if (state.selectedContainerId) toggleContainerPower(state.selectedContainerId);
+    }
+
+    function modalRestartContainer() {
+      if (state.selectedContainerId) restartContainer(state.selectedContainerId);
+    }
+
+    function modalRecreateContainer() {
+      const c = state.containers.find(item => item.id === state.selectedContainerId);
+      if (!c) return;
+      c.uptime = "Recreated (5s ago)";
+      c.status = "running";
+      c.logs.push({ ts: new Date().toTimeString().slice(0, 8), level: "INFO", msg: "Container recreated with preserved volumes and environment" });
+      addAuditEntry(`Recreated container ${c.name}`);
+      renderContainers();
+      openContainerModal(c.id, state.modalTab);
+      showToast(`Recreated ${c.name}`);
+    }
+
+    function modalUpdateContainer() {
+      if (state.selectedContainerId) updateSingleContainer(state.selectedContainerId);
+    }
+
+    // --- Compose Stacks Tab ---
+    function renderStacks() {
+      const listEl = document.getElementById("stacksList");
+      listEl.innerHTML = COMPOSE_STACKS.map(s => `
+        <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 flex flex-col justify-between gap-3">
+          <div>
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-white">${s.name}</h3>
+                <p class="text-[11px] font-mono-code text-slate-400">${s.path}</p>
+              </div>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">${s.services.length} services</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 mt-2.5">
+              ${s.services.map(srv => `<span class="text-[11px] font-mono-code px-2 py-0.5 rounded bg-slate-800 text-sky-300 border border-slate-700">${srv}</span>`).join("")}
+            </div>
+            <pre class="mt-3 bg-slate-950 p-2.5 rounded-xl border border-slate-800/90 text-[10px] font-mono-code text-slate-300 overflow-x-auto">${s.yaml}</pre>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+            <span class="text-[11px] text-slate-400">Updated ${s.lastUpdated}</span>
+            <button onclick="redeploySingleStack('${s.id}')" class="bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 font-semibold text-xs px-3 py-1.5 rounded-xl transition">
+              Pull &amp; Up -d
+            </button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function redeploySingleStack(stackId) {
+      const stack = COMPOSE_STACKS.find(s => s.id === stackId);
+      if (!stack) return;
+      stack.lastUpdated = "Just now";
+      addAuditEntry(`Redeployed Compose stack '${stack.name}' (${stack.services.join(", ")})`);
+      renderStacks();
+      showToast(`Stack '${stack.name}' pulled and redeployed!`);
+    }
+
+    function redeployAllStacks() {
+      COMPOSE_STACKS.forEach(s => { s.lastUpdated = "Just now"; });
+      addAuditEntry(`Redeployed all ${COMPOSE_STACKS.length} Docker Compose stacks`);
+      renderStacks();
+      showToast(`All ${COMPOSE_STACKS.length} Compose stacks updated & redeployed!`);
+    }
+
+    // --- Maintenance & System Prune Tab ---
+    function renderMaintenanceTotals() {
+      const total = +(state.reclaimable.images + state.reclaimable.cache + state.reclaimable.volumes).toFixed(2);
+      document.getElementById("reclaimableTotalText").textContent = `${total} GB`;
+      document.getElementById("pruneAllBtn").innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        <span>1-Click Clean All (${total} GB)</span>
+      `;
+      document.getElementById("reclaimImagesBadge").textContent = `${state.reclaimable.images.toFixed(2)} GB`;
+      document.getElementById("reclaimCacheBadge").textContent = `${state.reclaimable.cache.toFixed(2)} GB`;
+      document.getElementById("reclaimVolumesBadge").textContent = `${state.reclaimable.volumes.toFixed(2)} GB`;
+    }
+
+    function runMaintenanceTask(target) {
+      if (target === "images") {
+        const freed = state.reclaimable.images;
+        state.reclaimable.images = 0;
+        addAuditEntry(`Pruned unused Docker images (reclaimed ${freed.toFixed(2)} GB)`);
+        showToast(`Reclaimed ${freed.toFixed(2)} GB from unused images`);
+      } else if (target === "cache") {
+        const freed = state.reclaimable.cache;
+        state.reclaimable.cache = 0;
+        addAuditEntry(`Cleared BuildKit cache (reclaimed ${freed.toFixed(2)} GB)`);
+        showToast(`Reclaimed ${freed.toFixed(2)} GB from build cache`);
+      } else if (target === "volumes") {
+        const freed = state.reclaimable.volumes;
+        state.reclaimable.volumes = 0;
+        addAuditEntry(`Pruned dangling anonymous volumes (reclaimed ${freed.toFixed(2)} GB)`);
+        showToast(`Reclaimed ${freed.toFixed(2)} GB from orphan volumes`);
+      } else if (target === "networks") {
+        addAuditEntry("Verified bridge networks (proxy_net, media_net, dns_net): 0 packet drops");
+        showToast("All 3 Docker bridge networks verified healthy!");
+      } else if (target === "all") {
+        const total = +(state.reclaimable.images + state.reclaimable.cache + state.reclaimable.volumes).toFixed(2);
+        state.reclaimable.images = 0;
+        state.reclaimable.cache = 0;
+        state.reclaimable.volumes = 0;
+        addAuditEntry(`Executed full system prune: reclaimed ${total} GB total`);
+        showToast(`Full system cleanup complete! Reclaimed ${total} GB.`);
+      }
+      renderMaintenanceTotals();
+    }
+
+    function toggleAutomationRule(ruleKey) {
+      state.rules[ruleKey] = !state.rules[ruleKey];
+      const btnMap = {
+        digestCheck: document.getElementById("ruleDigestBtn"),
+        autoPrune: document.getElementById("ruleAutoPruneBtn"),
+        autoRollback: document.getElementById("ruleRollbackBtn")
+      };
+      const btn = btnMap[ruleKey];
+      if (!btn) return;
+      if (state.rules[ruleKey]) {
+        btn.textContent = "Enabled";
+        btn.className = "px-3 py-1.5 rounded-lg font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition";
+      } else {
+        btn.textContent = "Disabled";
+        btn.className = "px-3 py-1.5 rounded-lg font-medium bg-slate-800 text-slate-400 border border-slate-700 transition";
+      }
+      addAuditEntry(`Updated automation policy '${ruleKey}' to ${state.rules[ruleKey] ? "Enabled" : "Disabled"}`);
+    }
+
+    function renderAuditLog() {
+      const listEl = document.getElementById("auditLogList");
+      if (!listEl) return;
+      if (state.auditLog.length === 0) {
+        listEl.innerHTML = `<div class="text-slate-500">No maintenance events logged yet.</div>`;
+        return;
+      }
+      listEl.innerHTML = state.auditLog.map(item => `
+        <div class="p-2 rounded-lg bg-slate-950 border border-slate-800/80 text-slate-300">${item}</div>
+      `).join("");
+    }
+
+    function clearAuditHistory() {
+      state.auditLog = [];
+      renderAuditLog();
+      showToast("Cleared maintenance audit log");
+    }
+
+    // --- Live Server Connection & Companion YAML Copy ---
+    async function syncLiveServerData(checkUpdates = false) {
+      if (!state.liveApiEnabled) return false;
+      const base = state.serverUrl.replace(/\/+$/, "");
+      const headers = { "X-API-Key": state.apiKey };
+      const statusUrl = `${base}/api/status`;
+      const containersUrl = `${base}/api/containers?check_updates=${checkUpdates ? "true" : "false"}`;
+      const [statusResp, contResp] = await Promise.all([
+        fetch(statusUrl, { headers }),
+        fetch(containersUrl, { headers })
+      ]);
+      if (!statusResp.ok || !contResp.ok) throw new Error(`HTTP ${statusResp.status}`);
+      const st = await statusResp.json();
+      const ct = await contResp.json();
+
+      document.getElementById("activeServerSubtitle").textContent = `${st.hostname || "Home-Server"} • ${base}`;
+      document.getElementById("metricCpuText").textContent = `${Math.round(st.cpu_percent || 0)}%`;
+      document.getElementById("metricCpuBar").style.width = `${Math.min(100, Math.round(st.cpu_percent || 0))}%`;
+      document.getElementById("metricRamText").textContent = `${st.ram_used_gb}/${st.ram_total_gb}G`;
+      document.getElementById("metricRamBar").style.width = `${Math.min(100, Math.round(st.ram_percent || 0))}%`;
+      document.getElementById("metricDiskText").textContent = `${+(st.disk_total_gb - st.disk_used_gb).toFixed(0)}G free`;
+      document.getElementById("metricDiskBar").style.width = `${Math.min(100, Math.round(st.disk_percent || 0))}%`;
+
+      state.containers = (ct.containers || []).map((item, idx) => ({
+        id: item.id || `live_${idx}`,
+        node: "nas",
+        name: item.name,
+        image: (item.image || "").split(":")[0] || item.image,
+        currentTag: (item.image || "").includes(":") ? item.image.split(":").slice(1).join(":") : "latest",
+        latestTag: item.update_available ? "new-digest" : ((item.image || "").includes(":") ? item.image.split(":").slice(1).join(":") : "latest"),
+        localDigest: item.local_digest || "local",
+        remoteDigest: item.remote_digest || "remote",
+        updateAvailable: Boolean(item.update_available),
+        previousTag: null,
+        status: item.status === "running" ? "running" : "exited",
+        uptime: item.status,
+        cpu: 1.0,
+        ramMb: 120,
+        ports: item.ports && item.ports.length ? item.ports : ["internal"],
+        stack: "docker-host",
+        restartPolicy: item.restart_policy || "unless-stopped",
+        mounts: ["/var/run/docker.sock"],
+        env: ["MANAGED_BY=DockDroid"],
+        logs: [{ ts: new Date().toTimeString().slice(0, 8), level: "INFO", msg: `Connected to live container ${item.name} (${item.id})` }]
+      }));
+      renderContainers();
+      return true;
+    }
+
+    async function testAndSaveConnection() {
+      let urlInput = document.getElementById("inputServerUrl").value.trim().replace(/\/+$/, "");
+      const sshUser = (document.getElementById("inputSshUser")?.value || "root").trim();
+      const keyInput = document.getElementById("inputApiKey").value.trim();
+      const resultEl = document.getElementById("connTestResult");
+      const badgeEl = document.getElementById("liveApiBadge");
+
+      if (!urlInput.startsWith("http://") && !urlInput.startsWith("https://")) {
+        const hostOnly = urlInput.split(":")[0];
+        urlInput = `http://${hostOnly}:8787`;
+      }
+
+      state.serverUrl = urlInput;
+      state.apiKey = keyInput;
+      resultEl.textContent = `Connecting to live Docker bridge at ${urlInput} ...`;
+
+      try {
+        state.liveApiEnabled = true;
+        await syncLiveServerData(false);
+        badgeEl.textContent = `Live: ${urlInput}`;
+        badgeEl.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        document.getElementById("connectionModeBadge").textContent = "LIVE SERVER";
+        resultEl.textContent = `Connected to live home server at ${urlInput}! Showing your real Docker containers.`;
+        showToast(`Connected to live server (${state.containers.length} containers)!`);
+        switchMainTab("containers");
+      } catch (err) {
+        state.liveApiEnabled = false;
+        badgeEl.textContent = `SSH Profile Saved`;
+        resultEl.textContent = `Could not reach ${urlInput} yet. Run the 1-line SSH command below in Termux / SSH on your home server first, then open http://<your-server-ip>:8787 in Chrome!`;
+        showToast("Run the 1-line SSH command on your server first");
+      }
+      return;
+
+      try {
+        const endpoint = `${urlInput}/api/status`;
+        const resp = await fetch(endpoint, {
+          method: "GET",
+          headers: { "X-API-Key": keyInput }
+        });
+        if (resp.ok) {
+          state.liveApiEnabled = true;
+          badgeEl.textContent = "Live Server Connected";
+          badgeEl.className = "text-[11px] font-mono-code px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+          resultEl.textContent = `Connected to ${urlInput}! Live Docker socket telemetry active.`;
+          showToast("Connected to live DockDroid agent!");
+        } else {
+          resultEl.textContent = `Server responded with HTTP ${resp.status}. Keeping interactive simulation active so you can test all controls.`;
+          showToast(`HTTP ${resp.status} from endpoint; interactive mode active`);
+        }
+      } catch (err) {
+        resultEl.textContent = `Could not reach ${urlInput} from browser sandbox (CORS / private LAN IP). Interactive simulation remains active — deploy the Companion Agent on your LAN to connect from Android.`;
+        showToast("Saved endpoint config (Interactive mode active in sandbox)");
+      }
+    }
+
+    function enableDemoMode() {
+      state.liveApiEnabled = false;
+      document.getElementById("liveApiBadge").textContent = "Interactive Mode";
+      document.getElementById("connTestResult").textContent = "Switched to built-in interactive Home Server simulation.";
+      showToast("Interactive Home Server simulation active");
+    }
+
+    function copyCompanionCompose() {
+      const code = document.getElementById("companionComposeCode").textContent;
+      copyTextFallback(code);
+      showToast("Copied Companion Agent docker-compose.yml!");
+    }
+
+    // --- Initialize App ---
+    window.addEventListener("DOMContentLoaded", () => {
+      renderContainers();
+      renderStacks();
+      renderMaintenanceTotals();
+      renderAuditLog();
+    });
+  </script>
+</body>
+</html>
